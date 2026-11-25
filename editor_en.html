@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DQ4 DS Immigrant Editor</title>
+<style>
+:root{
+  --bg:#0b1030; --win:#101a5a; --win2:#18237a; --line:#e8ecff; --text:#ffffff; --muted:#b8c0f0;
+  --accent:#ffd54a; --bad:#ff7a7a; --good:#7dffa8; --input:#070b26;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:14px 16px;border-bottom:2px solid var(--line);background:var(--win)}
+header h1{margin:0;font-size:20px;letter-spacing:.5px}
+header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+main{max-width:1150px;margin:0 auto;padding:16px;display:grid;gap:16px}
+.win{background:var(--win);border:3px solid var(--line);border-radius:10px;padding:14px;box-shadow:0 0 0 3px var(--bg),0 0 0 5px #3a4599}
+.win h2{margin:0 0 10px;font-size:16px;color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.btn{background:var(--win2);color:var(--text);border:2px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button:hover,.btn:hover{background:#2a379b}
+button.prim{background:#8a6b00;border-color:var(--accent)}
+button.prim:hover{background:#a88300}
+button.danger{border-color:var(--bad)}
+button:disabled{opacity:.4;cursor:default}
+input,select,textarea{background:var(--input);color:var(--text);border:2px solid #5560b0;border-radius:6px;padding:7px 8px;font:inherit;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.field small{display:block;font-size:11px;color:var(--muted);margin-top:2px;min-height:14px}
+.field small.over{color:var(--bad)}
+.layout{display:grid;grid-template-columns:330px 1fr;gap:16px}
+@media (max-width:820px){.layout{grid-template-columns:1fr}}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tabs button{flex:1;padding:6px}
+.tabs button.on{background:var(--accent);color:#000;border-color:var(--accent)}
+.slots{display:grid;gap:6px}
+.slot{display:flex;gap:8px;align-items:center;padding:7px 9px;border:2px solid #3a4599;border-radius:8px;cursor:pointer;background:var(--input);min-height:48px}
+.slot:hover{border-color:var(--muted)}
+.slot.sel{border-color:var(--accent)}
+.slot img,.spr{image-rendering:pixelated;width:36px;height:44px;object-fit:contain}
+.bigspr{image-rendering:pixelated;width:72px;height:88px;object-fit:contain;background:#000;border:2px solid #3a4599;border-radius:8px}
+.picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:6px;margin-top:8px;max-height:300px;overflow:auto}
+.picker button{padding:2px;display:flex;flex-direction:column;align-items:center;font-size:11px;background:#000}
+.picker button.on{border-color:var(--accent)}
+.picker img{image-rendering:pixelated;width:48px;height:58px;object-fit:contain}
+.slot .n{width:26px;color:var(--muted);font-size:12px;text-align:right}
+.slot .nm{font-weight:600}
+.slot .sub{font-size:12px;color:var(--muted)}
+.slot.empty{opacity:.45;cursor:default}
+.slot.dup{border-color:var(--bad)}
+.idbox{display:flex;gap:6px}
+.idbox input{width:64px;text-align:center}
+.hex{font-family:ui-monospace,Consolas,monospace;color:var(--muted);font-size:12px}
+.msg input{font-family:ui-monospace,Consolas,monospace;letter-spacing:1px}
+.pal button{padding:4px 9px;min-width:34px}
+.status{font-size:13px;padding:8px 10px;border-radius:6px;background:var(--input);border:1px solid #3a4599}
+.status.ok{color:var(--good)} .status.err{color:var(--bad)}
+textarea.code{font-family:ui-monospace,Consolas,monospace;font-size:12px;height:70px;resize:vertical}
+.hide{display:none!important}
+.drop{border:3px dashed var(--muted);border-radius:10px;padding:26px;text-align:center;color:var(--muted)}
+.drop.over{border-color:var(--accent);color:var(--accent)}
+.help{color:var(--muted);font-size:13px}
+.help li{margin:3px 0}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--win2);border:2px solid var(--accent);padding:10px 16px;border-radius:8px;display:none;max-width:90vw;z-index:9}
+</style>
+</head>
+<body>
+<header>
+  <h1>Dragon Quest IV DS · Immigrant Editor</h1>
+  <p>Works offline. Edit the 24 immigrants of your town and your own immigrant; the checksum is fixed on save.</p>
+</header>
+<main>
+  <section class="win" id="loadWin">
+    <h2>1. Open your save</h2>
+    <div class="drop" id="drop">
+      Drop your <b>.sav</b> / <b>.dsv</b> / <b>.srm</b><br><br>
+      <label class="btn" style="display:inline-block;color:#fff;font-size:15px">Choose file<input type="file" id="file" class="hide"></label>
+    </div>
+    <p class="status hide" id="fileStatus"></p>
+    <div class="row" style="margin-top:10px">
+      <label class="btn">🎨 Sprites: open your ROM (.nds)<input type="file" id="romFile" accept=".nds" class="hide"></label>
+      <span class="help" id="romStatus">Optional. Sprites are read from your own DQ4 DS ROM; none are included.</span>
+    </div>
+    <p class="help">Always back up your save before editing it.</p>
+  </section>
+
+  <div class="hide" id="editor">
+    <div class="layout">
+      <section class="win">
+        <h2>Received immigrants <span id="count"></span></h2>
+        <div class="tabs" id="tabs"></div>
+        <div class="slots" id="slots"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="bAdd">+ New</button>
+          <button id="bDup">Duplicate</button>
+          <button id="bUp">▲</button>
+          <button id="bDown">▼</button>
+          <button id="bDel" class="danger">Delete</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="bFill" style="width:100%">Fill up to 24 with copies of my immigrant</button>
+        </div>
+        <div style="margin-top:12px;border-top:1px solid #3a4599;padding-top:12px">
+          <label>Templates: characters</label>
+          <select id="preset"></select>
+          <div class="row" style="margin-top:6px">
+            <button id="bPreset" style="flex:1">Apply to selected</button>
+            <button id="bFillPresets" style="flex:1">Add missing ones</button>
+          </div>
+          <button id="bAllPresets" class="prim" style="width:100%;margin-top:6px">★ Load all 24 templates (replaces the list)</button>
+        </div>
+        <div class="row" style="margin-top:12px;border-top:1px solid #3a4599;padding-top:12px">
+          <button id="bOwn" style="width:100%">✉ My immigrant (the one I send)</button>
+        </div>
+      </section>
+
+      <section class="win" id="form">
+        <h2 id="formTitle">Immigrant</h2>
+        <div class="grid">
+          <div class="field" style="grid-column:1/-1">
+            <label>ID (4 bytes, 0-255). Each immigrant needs a different ID or the game replaces it.</label>
+            <div class="row">
+              <div class="idbox" id="idbox"></div>
+              <button id="bNewId">Generate unique ID</button>
+              <span class="hex" id="idHex"></span>
+            </div>
+            <small id="idWarn"></small>
+          </div>
+          <div class="field"><label>Name</label><input id="fName" data-k="name"><small></small></div>
+          <div class="field" style="grid-column:1/-1"><label>Type (look)</label><div class="row" style="flex-wrap:nowrap"><img id="bigSpr" class="bigspr" alt=""><div style="flex:1"><select id="fType"></select><details style="margin-top:6px"><summary class="help" style="cursor:pointer">Choose from sprites</summary><div class="picker" id="picker"></div></details></div></div><small></small></div>
+          <div class="field"><label>Gender</label><select id="fGender"></select><small></small></div>
+          <div class="field"><label>Age</label><select id="fAge"></select><small></small></div>
+          <div class="field"><label>Hobby</label><select id="fHobby"></select><small></small></div>
+          <div class="field"><label>Sender</label><input id="fSender" data-k="sender"><small></small></div>
+          <div class="field" style="grid-column:1/-1"><label>Hometown (e.g. "Slimeville")</label><input id="fOrigin" data-k="origin"><small></small></div>
+          <div class="field msg" style="grid-column:1/-1">
+            <label>Message: 3 lines of 15 characters</label>
+            <div style="display:grid;gap:6px">
+              <input id="fM0" maxlength="15"><input id="fM1" maxlength="15"><input id="fM2" maxlength="15">
+            </div>
+            <small id="msgInfo"></small>
+          </div>
+          <div class="field pal" style="grid-column:1/-1">
+            <label>Symbols (inserted at the cursor)</label>
+            <div class="row" id="pal"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="win" style="margin-top:16px">
+      <h2>Share codes</h2>
+      <p class="help" style="margin-top:0">Copy the selected immigrant's code and send it to someone. They paste it here and click "Add from code".</p>
+      <textarea class="code" id="code" placeholder="DQ4I1:..."></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="bCopy">Copy selected code</button>
+        <button id="bImport">Add from code</button>
+      </div>
+    </section>
+
+    <section class="win" style="margin-top:16px">
+      <h2>2. Save your game</h2>
+      <div class="row">
+        <button class="prim" id="bSave">💾 Save modified file</button>
+        <span class="help" id="saveInfo"></span>
+      </div>
+    </section>
+  </div>
+
+  <section class="win">
+    <h2>How to use</h2>
+    <ol class="help">
+      <li>Open your save (.sav from DeSmuME/melonDS/RetroArch, or DeSmuME's .dsv).</li>
+      <li>Pick an immigrant and edit it, or create new ones (max 24, 3 pages of 8).</li>
+      <li>"Fill up to 24" copies your immigrant into empty slots, each with a different ID.</li>
+      <li>Click "Save" and replace your save file with the downloaded one (same name).</li>
+    </ol>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+// ===== Núcleo: lectura/escritura de inmigrantes de Dragon Quest IV (DS) =====
+// Formato descubierto comparando partidas reales (0 a 24 inmigrantes).
+//
+// Bloque de partida: empieza con la firma "arte" y mide 0x3300 bytes.
+//   +0x0008  checksum (u32 LE) = suma de todos los bytes del bloque,
+//            contando este campo como 0.
+//   +0x1FDC  lista de 24 inmigrantes recibidos (compacta, sin huecos),
+//            cada uno de 0xC4 (196) bytes. Ranura vacía = todo 0xFF.
+//   +0x323C  tu propio inmigrante (el que envías), mismo formato.
+//
+// Registro de inmigrante (196 bytes):
+//   +0x00  ID (4 bytes)
+//   +0x04  nombre      (26 bytes, UTF-8, relleno con 00)
+//   +0x1E  remitente   (26 bytes)
+//   +0x38  origen      (42 bytes)  p. ej. "Slimeville"
+//   +0x62  mensaje     (92 bytes)  3 líneas de 15 caracteres
+//   +0xBE  tipo (0-50) +0xBF género +0xC0 edad +0xC1 afición
+//   +0xC2  FF FF
+
+(function (root) {
+  const BLOCK_SIZE = 0x3300;
+  const CHK_OFF = 0x08;
+  const LIST_OFF = 0x1fdc;
+  const OWN_OFF = 0x323c;
+  const REC = 0xc4;
+  const MAX = 24;
+  const F = {
+    id: [0x00, 4], name: [0x04, 26], sender: [0x1e, 26], origin: [0x38, 42],
+    msg: [0x62, 92], type: 0xbe, gender: 0xbf, age: 0xc0, hobby: 0xc1,
+  };
+  // Límite de bytes de texto (se deja sitio para el 00 final).
+  const LIMIT = { name: 24, sender: 24, origin: 40, msg: 90 };
+
+  // Símbolos propios de la fuente del juego (según tus notas de la RAM).
+  const SPECIAL = [
+    ['♪', [0xe2, 0x93, 0x86]],
+    ['“', [0xe2, 0x93, 0x95]],
+    ['”', [0xe2, 0x93, 0x96]],
+    ['‘', [0xe2, 0x93, 0x97]],
+    ['’', [0xe2, 0x93, 0x98]],
+  ];
+
+  function encodeText(str) {
+    const out = [];
+    for (const ch of str) {
+      const sp = SPECIAL.find((s) => s[0] === ch);
+      if (sp) out.push(...sp[1]);
+      else out.push(...new TextEncoder().encode(ch));
+    }
+    return out;
+  }
+
+  function decodeText(bytes) {
+    let end = bytes.indexOf(0);
+    if (end < 0) end = bytes.length;
+    const b = Array.from(bytes.slice(0, end));
+    let s = '';
+    let i = 0;
+    while (i < b.length) {
+      const sp = SPECIAL.find((x) => x[1].every((v, k) => b[i + k] === v));
+      if (sp) { s += sp[0]; i += 3; continue; }
+      let n = 1;
+      if (b[i] >= 0xf0) n = 4; else if (b[i] >= 0xe0) n = 3; else if (b[i] >= 0xc0) n = 2;
+      s += new TextDecoder().decode(new Uint8Array(b.slice(i, i + n)));
+      i += n;
+    }
+    return s;
+  }
+
+  function byteLen(str) { return encodeText(str).length; }
+
+  function checksum(buf, base) {
+    let s = 0;
+    for (let i = 0; i < BLOCK_SIZE; i++) {
+      if (i >= CHK_OFF && i < CHK_OFF + 4) continue;
+      s += buf[base + i];
+    }
+    return s >>> 0;
+  }
+
+  function readU32(buf, o) {
+    return (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0;
+  }
+  function writeU32(buf, o, v) {
+    buf[o] = v & 255; buf[o + 1] = (v >>> 8) & 255; buf[o + 2] = (v >>> 16) & 255; buf[o + 3] = (v >>> 24) & 255;
+  }
+
+  // Busca bloques de partida válidos (firma "arte" + checksum correcto).
+  function findBlocks(buf) {
+    const res = [];
+    for (let o = 0; o + BLOCK_SIZE <= buf.length; o += 0x100) {
+      if (buf[o] === 0x61 && buf[o + 1] === 0x72 && buf[o + 2] === 0x74 && buf[o + 3] === 0x65) {
+        const ok = checksum(buf, o) === readU32(buf, o + CHK_OFF);
+        res.push({ offset: o, valid: ok });
+      }
+    }
+    return res;
+  }
+
+  function readRecord(buf, o) {
+    const raw = buf.slice(o, o + REC);
+    if (raw.slice(0, 4).every((v) => v === 0xff)) return null;
+    const t = (k) => decodeText(raw.slice(F[k][0], F[k][0] + F[k][1]));
+    return {
+      id: Array.from(raw.slice(0, 4)),
+      name: t('name'), sender: t('sender'), origin: t('origin'), msg: t('msg'),
+      type: raw[F.type], gender: raw[F.gender], age: raw[F.age], hobby: raw[F.hobby],
+      raw: Array.from(raw),
+    };
+  }
+
+  function writeRecord(buf, o, r) {
+    if (!r) { for (let i = 0; i < REC; i++) buf[o + i] = 0xff; return; }
+    for (let i = 0; i < REC; i++) buf[o + i] = 0;
+    for (let i = 0; i < 4; i++) buf[o + i] = r.id[i] & 255;
+    for (const k of ['name', 'sender', 'origin', 'msg']) {
+      const enc = encodeText(r[k]);
+      if (enc.length > LIMIT[k]) throw new Error(`Text too long (${k}): ${enc.length} bytes, max ${LIMIT[k]}`);
+      enc.forEach((v, i) => { buf[o + F[k][0] + i] = v; });
+    }
+    buf[o + F.type] = r.type; buf[o + F.gender] = r.gender; buf[o + F.age] = r.age; buf[o + F.hobby] = r.hobby;
+    buf[o + 0xc2] = 0xff; buf[o + 0xc3] = 0xff;
+  }
+
+  function load(buf, base) {
+    const list = [];
+    for (let k = 0; k < MAX; k++) {
+      const r = readRecord(buf, base + LIST_OFF + k * REC);
+      if (!r) break;
+      list.push(r);
+    }
+    return { list, own: readRecord(buf, base + OWN_OFF) };
+  }
+
+  function save(buf, base, data) {
+    const out = new Uint8Array(buf);
+    if (data.list.length > MAX) throw new Error('Max 24 immigrants');
+    for (let k = 0; k < MAX; k++) writeRecord(out, base + LIST_OFF + k * REC, data.list[k] || null);
+    if (data.own) writeRecord(out, base + OWN_OFF, data.own);
+    writeU32(out, base + CHK_OFF, checksum(out, base));
+    return out;
+  }
+
+  // Mensaje: 3 líneas de 15 caracteres; el juego rellena con espacios.
+  function splitMsg(msg) {
+    const ch = Array.from(msg);
+    return [ch.slice(0, 15).join('').trimEnd(), ch.slice(15, 30).join('').trimEnd(), ch.slice(30, 45).join('').trimEnd()];
+  }
+  function joinMsg(lines) {
+    const l = lines.map((x) => Array.from(x).slice(0, 15));
+    let last = 2;
+    while (last > 0 && l[last].length === 0) last--;
+    let s = '';
+    for (let i = 0; i <= last; i++) {
+      s += i < last ? l[i].join('').padEnd(15, ' ') : l[i].join('');
+    }
+    return s;
+  }
+
+  const api = {
+    BLOCK_SIZE, LIST_OFF, OWN_OFF, REC, MAX, LIMIT,
+    encodeText, decodeText, byteLen, checksum, findBlocks, load, save, splitMsg, joinMsg, readU32,
+  };
+  if (typeof module !== 'undefined') module.exports = api; else root.DQ4 = api;
+})(this);
+
+</script>
+<script>
+(function(){
+const TYPES=["Young man", "Young woman", "Gentleman (grey vest, brown trousers)", "Lady", "Old man", "Old woman", "Boy", "Girl", "Merchant (Mao suit)", "Priest", "Nun", "Knight (sword)", "Slime", "Strongman (rough helmet)", "Bard", "Bunny girl", "Bartender", "Red soldier (Burland)", "Green soldier (Endor, Zamoksva)", "Prisoner", "Martial artist", "Dancer", "Merchant (turban)", "Priestess (Isis)", "Healslime", "Old gnome", "Young gnome", "Young gnome woman", "Gnome child", "Warrior woman", "Scholar", "Young maid", "Princess", "Male mage", "Female mage", "Skeleton", "Restless armour", "Powie yowie", "Psaro's minion", "Queen", "King", "Royal advisor", "Zenithian man", "Zenithian woman", "Zenithian royal guard", "Fairy (DQIII elf)", "Weretiger", "Imp", "Fleurette (DQ Swords)", "Carver (Hassan)", "Gentleman recolour (hidden, not in the list)"];
+const GENDERS=["Male", "Female", "??? (monster, shown like this in game)"];
+const AGES=["Teen", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90"];
+const HOBBIES=["Jogging", "Eating Out", "Stamp Books", "Health Spas", "Gardening", "DIY", "Cookery", "Eating", "Spelunking", "Metal Detecting", "Smashing Pots", "Breaking Barrels", "Collecting Medals", "Tarot", "Treasure-Hunting", "Tombola", "Swimwear", "Solo Singing", "Daydreaming", "Solo Hiking", "Cruising", "Aromatherapy", "Nail Art", "Social Dancing", "Volunteer Work", "Street Dance", "Astrology", "Meteorology", "Juggling", "Odourology", "Hospitality", "Philandering", "Pillow-Fighting", "Mountaineering", "Songwriting", "Drawing", "Programming", "Writing", "One-Man Shows", "Ghost Stories", "Big Hair", "Sleep-Talking", "Brown-Nosing", "Pilgrimages", "Overspending", "Penny-Pinching", "Dieting", "Cheap Gags", "Skipping", "Unicycling", "Freestyle Dance", "Meditation", "Funfair Games", "Yoyo", "Dressing Up", "Helping Heroes", "Reading", "Playing Music", "Stamp Collecting", "Art Appreciation", "Tracing", "Portraiture", "Puff-Puffery", "Communication"];
+const SYMBOLS=["¡", "¿", "á", "é", "í", "ó", "ú", "ü", "ñ", "Á", "É", "Í", "Ó", "Ú", "Ñ", "à", "è", "ç", "ê", "ô", "û", "œ", "♪", "“", "”", "‘", "’", "~"];
+const PER_PAGE=8;
+const BLANK="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+let SPRITES=[];
+try{const c=JSON.parse(localStorage.getItem("dq4_sprites")||"[]");if(Array.isArray(c))SPRITES=c}catch(e){}
+const spr=t=>SPRITES[t]||BLANK;
+// --- Lee data/G2D/ICON/sure32.mpt de la ROM del usuario ---
+function romFile(rom,path){
+  const u16=o=>rom[o]|rom[o+1]<<8,u32=o=>(rom[o]|rom[o+1]<<8|rom[o+2]<<16|rom[o+3]<<24)>>>0;
+  const fnt=u32(0x40),fat=u32(0x48);
+  let dir=0,parts=path.split("/");
+  for(let k=0;k<parts.length;k++){
+    const e=fnt+(dir&0xFFF)*8;let p=fnt+u32(e),id=u16(e+4),found=-1;
+    for(;;){const l=rom[p++];if(!l)break;const nm=String.fromCharCode(...rom.subarray(p,p+(l&0x7F)));p+=l&0x7F;
+      if(l&0x80){const sub=u16(p);p+=2;if(nm.toLowerCase()===parts[k].toLowerCase()&&k<parts.length-1){found=sub;break}}
+      else{if(nm.toLowerCase()===parts[k].toLowerCase()&&k===parts.length-1){found=id;break}id++}}
+    if(found<0)return null;
+    if(k===parts.length-1){const a=u32(fat+found*8),b=u32(fat+found*8+4);return rom.subarray(a,b)}
+    dir=found;
+  }
+  return null;
+}
+function spritesFromRom(rom){
+  const d=romFile(rom,"data/G2D/ICON/sure32.mpt");
+  if(!d||String.fromCharCode(...d.subarray(0,4))!=="MPT0")throw new Error("No sprites found in this ROM");
+  const u16=o=>d[o]|d[o+1]<<8,u32=o=>(d[o]|d[o+1]<<8|d[o+2]<<16|d[o+3]<<24)>>>0;
+  const hs=u32(20),ps=u32(24),base=hs+ps,ent={};
+  for(let i=0;i+6<=ps;i+=6){ent[u16(hs+i)]=d.subarray(base+u16(hs+i+4)*4,base+u16(hs+i+4)*4+u16(hs+i+2))}
+  const pal=ent[9999];if(!pal)throw new Error("Palette not found");
+  const cols=[];for(let i=0;i<256;i++){const v=pal[i*2]|pal[i*2+1]<<8;cols.push([(v&31)*255/31|0,(v>>5&31)*255/31|0,(v>>10&31)*255/31|0,i?255:0])}
+  const out=[];const cv=document.createElement("canvas");cv.width=cv.height=32;const cx=cv.getContext("2d");
+  for(let t=0;t<51;t++){
+    const px=ent[t+1];
+    if(!px||px.length<1024||px.every(v=>v===0)){out.push(null);continue}
+    const img=cx.createImageData(32,32);
+    for(let k=0;k<1024;k++){const tile=k>>6,p=k&63,x=(tile&3)*8+(p&7),y=(tile>>2)*8+(p>>3),o=(y*32+x)*4,c=cols[px[k]];img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=c[3]}
+    cx.clearRect(0,0,32,32);cx.putImageData(img,0,0);out.push(cv.toDataURL());
+  }
+  if(!out[50])out[50]=out[2]; // tipo 50 oculto: recolor del 2
+  return out;
+}
+const $=id=>document.getElementById(id);
+let fileBuf=null,fileName="partida.sav",base=0,data=null,sel=0,page=0,editingOwn=false,lastFocus=null;
+
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",3000)}
+function opt(sel,arr){sel.innerHTML="";arr.forEach((t,i)=>{const o=document.createElement("option");o.value=i;o.textContent=i+" · "+t;sel.appendChild(o)})}
+function optVal(sel,v,arr){ // valor fuera de la lista: añadirlo para no perderlo
+  if(v>=arr.length&&!sel.querySelector('option[value="'+v+'"]')){const o=document.createElement("option");o.value=v;o.textContent=v+" · (unknown)";sel.appendChild(o)}
+  sel.value=v;
+}
+opt($("fType"),TYPES);
+TYPES.forEach((t,i)=>{const b=document.createElement("button");b.type="button";b.dataset.t=i;b.title=i+" · "+t;b.innerHTML=`<img alt=""><span>${i}</span>`;b.querySelector("img").src=spr(i);b.onclick=()=>{const r=cur();if(!r)return;r.type=i;refreshSlots()};$("picker").appendChild(b)});opt($("fGender"),GENDERS);opt($("fAge"),AGES);opt($("fHobby"),HOBBIES);
+for(let i=0;i<4;i++){const inp=document.createElement("input");inp.type="number";inp.min=0;inp.max=255;inp.dataset.i=i;$("idbox").appendChild(inp)}
+SYMBOLS.forEach(s=>{const b=document.createElement("button");b.textContent=s;b.type="button";
+  b.addEventListener("mousedown",e=>e.preventDefault());
+  b.onclick=()=>insertSym(s);$("pal").appendChild(b)});
+
+function insertSym(s){
+  const el=lastFocus;if(!el){toast("Click a text field first");return}
+  const a=el.selectionStart??el.value.length,b=el.selectionEnd??el.value.length;
+  el.value=el.value.slice(0,a)+s+el.value.slice(b);el.focus();el.setSelectionRange(a+s.length,a+s.length);
+  el.dispatchEvent(new Event("input"));
+}
+document.querySelectorAll("#form input[type=text],#form input:not([type])").forEach(el=>el.addEventListener("focus",()=>lastFocus=el));
+
+function refreshSprites(){document.querySelectorAll("#picker button").forEach(b=>b.querySelector("img").src=spr(+b.dataset.t));if(data)render()}
+$("romFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{try{SPRITES=spritesFromRom(new Uint8Array(rd.result));try{localStorage.setItem("dq4_sprites",JSON.stringify(SPRITES))}catch(x){}
+    $("romStatus").textContent="✔ Sprites loaded from your ROM ("+SPRITES.filter(Boolean).length+"). They will be remembered next time.";refreshSprites()}
+    catch(x){$("romStatus").textContent="✘ "+x.message}};rd.readAsArrayBuffer(f)};
+if(SPRITES.length)$("romStatus").textContent="✔ Sprites loaded from your ROM (saved in this browser).";
+// ---------- carga ----------
+function loadFile(f){
+  fileName=f.name;const rd=new FileReader();
+  rd.onload=()=>{
+    const buf=new Uint8Array(rd.result);const blocks=DQ4.findBlocks(buf);const st=$("fileStatus");st.classList.remove("hide","ok","err");
+    if(!blocks.length){st.textContent="No Dragon Quest IV data found in this file.";st.classList.add("err");return}
+    const b=blocks.find(x=>x.valid)||blocks[0];
+    fileBuf=buf;base=b.offset;data=DQ4.load(buf,base);sel=0;page=0;editingOwn=false;
+    st.textContent=`✔ ${f.name} loaded · ${data.list.length}/24 immigrants · checksum ${b.valid?"OK":"WRONG (will be fixed on save)"}`;
+    st.classList.add(b.valid?"ok":"err");
+    $("editor").classList.remove("hide");
+    if(!data.list.length) editingOwn=true;
+    render();
+  };
+  rd.readAsArrayBuffer(f);
+}
+$("file").onchange=e=>e.target.files[0]&&loadFile(e.target.files[0]);
+const drop=$("drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>e.dataTransfer.files[0]&&loadFile(e.dataTransfer.files[0]));
+
+// ---------- utilidades de ID ----------
+const idKey=id=>id.join(",");
+function dupIds(){const c={};data.list.forEach(r=>{c[idKey(r.id)]=(c[idKey(r.id)]||0)+1});return c}
+function newUniqueId(){
+  const used=new Set(data.list.map(r=>idKey(r.id)));
+  const seed=(data.own?data.own.id:[0x7c,0x29,0x68,0x4c]).slice();
+  for(let byte=0;byte<4;byte++)for(let d=1;d<256;d++){const id=seed.slice();id[byte]=(seed[byte]+d)&255;if(!used.has(idKey(id)))return id}
+  return [0,0,0,0].map(()=>Math.floor(Math.random()*256));
+}
+function blankRec(){
+  const src=data.own||{name:"New",sender:"",origin:"",msg:"",type:0,gender:0,age:1,hobby:0};
+  return {...src,id:newUniqueId(),raw:undefined};
+}
+function cur(){return editingOwn?data.own:data.list[sel]}
+
+// ---------- render ----------
+function render(){
+  $("count").textContent=`(${data.list.length}/24)`;
+  const tabs=$("tabs");tabs.innerHTML="";
+  for(let p=0;p<3;p++){const b=document.createElement("button");b.textContent="Page "+(p+1);if(p===page)b.className="on";b.onclick=()=>{page=p;render()};tabs.appendChild(b)}
+  const dups=dupIds();const box=$("slots");box.innerHTML="";
+  for(let i=page*PER_PAGE;i<(page+1)*PER_PAGE;i++){
+    const r=data.list[i];const d=document.createElement("div");
+    if(r){
+      d.className="slot"+(!editingOwn&&i===sel?" sel":"")+(dups[idKey(r.id)]>1?" dup":"");
+      d.innerHTML=`<span class="n">${i+1}</span><img alt=""><div><div class="nm"></div><div class="sub"></div></div>`;d.querySelector("img").src=spr(r.type);
+      d.querySelector(".nm").textContent=r.name||"(no name)";
+      d.querySelector(".sub").textContent=(TYPES[r.type]||"Type "+r.type)+" · "+(HOBBIES[r.hobby]||"");
+      d.onclick=()=>{sel=i;editingOwn=false;render()};
+    }else{d.className="slot empty";d.innerHTML=`<span class="n">${i+1}</span><div class="sub">— vacío —</div>`}
+    box.appendChild(d);
+  }
+  $("bOwn").style.borderColor=editingOwn?"var(--accent)":"";
+  const has=!editingOwn&&data.list.length>0;
+  $("bDup").disabled=!has||data.list.length>=24;$("bDel").disabled=!has;$("bUp").disabled=!has||sel===0;$("bDown").disabled=!has||sel>=data.list.length-1;
+  $("bAdd").disabled=data.list.length>=24;$("bFillPresets").disabled=data.list.length>=24;$("bFill").disabled=data.list.length>=24||!data.own;
+  renderForm();
+}
+function renderForm(){
+  const r=cur();const form=$("form");
+  if(!r){$("formTitle").textContent="No immigrants: click \"+ New\"";form.querySelectorAll("input,select,button").forEach(e=>e.disabled=true);return}
+  form.querySelectorAll("input,select,button").forEach(e=>e.disabled=false);
+  $("formTitle").textContent=editingOwn?"✉ My immigrant (the one you send)":`Immigrant ${sel+1} of ${data.list.length}`;
+  $("idbox").querySelectorAll("input").forEach((inp,i)=>inp.value=r.id[i]);
+  $("fName").value=r.name;$("fSender").value=r.sender;$("fOrigin").value=r.origin;
+  optVal($("fType"),r.type,TYPES);optVal($("fGender"),r.gender,GENDERS);optVal($("fAge"),r.age,AGES);optVal($("fHobby"),r.hobby,HOBBIES);
+  $("bigSpr").src=spr(r.type);document.querySelectorAll("#picker button").forEach(b=>b.classList.toggle("on",+b.dataset.t===r.type));
+  const m=DQ4.splitMsg(r.msg);[0,1,2].forEach(i=>$("fM"+i).value=m[i]);
+  updateInfo();
+}
+function counter(el,k){
+  const s=el.value;const chars=Array.from(s).length,bytes=DQ4.byteLen(s),lim=DQ4.LIMIT[k];
+  const sm=el.nextElementSibling;sm.textContent=`${chars} characters · ${bytes}/${lim} bytes`+(chars>8&&k!=="origin"?" · the game shows 8":"");
+  sm.className=bytes>lim?"over":"";
+}
+function updateInfo(){
+  const r=cur();if(!r)return;
+  ["fName","fSender","fOrigin"].forEach(id=>counter($(id),$(id).dataset.k));
+  const b=DQ4.byteLen(r.msg);const mi=$("msgInfo");mi.textContent=`${Array.from(r.msg).length}/45 characters · ${b}/${DQ4.LIMIT.msg} bytes`;mi.className=b>DQ4.LIMIT.msg?"over":"";
+  $("idHex").textContent="HEX "+r.id.map(v=>v.toString(16).toUpperCase().padStart(2,"0")).join(" ");
+  const w=$("idWarn");
+  if(!editingOwn&&dupIds()[idKey(r.id)]>1){w.textContent="⚠ This ID is used by another immigrant. Click \"Generate unique ID\".";w.className="over"}
+  else{w.textContent="";w.className=""}
+}
+
+// ---------- edición ----------
+$("idbox").addEventListener("input",e=>{const r=cur();if(!r)return;let v=parseInt(e.target.value,10);if(isNaN(v))v=0;v=Math.max(0,Math.min(255,v));r.id[+e.target.dataset.i]=v;updateInfo();refreshSlots()});
+$("fName").oninput=e=>{cur().name=e.target.value;updateInfo();refreshSlots()};
+$("fSender").oninput=e=>{cur().sender=e.target.value;updateInfo()};
+$("fOrigin").oninput=e=>{cur().origin=e.target.value;updateInfo()};
+[0,1,2].forEach(i=>$("fM"+i).oninput=()=>{cur().msg=DQ4.joinMsg([0,1,2].map(k=>$("fM"+k).value));updateInfo()});
+$("fType").onchange=e=>{cur().type=+e.target.value;refreshSlots()};
+$("fGender").onchange=e=>{cur().gender=+e.target.value};
+$("fAge").onchange=e=>{cur().age=+e.target.value};
+$("fHobby").onchange=e=>{cur().hobby=+e.target.value;refreshSlots()};
+function refreshSlots(){const s=document.activeElement;const id=s&&s.id;const pos=s&&s.selectionStart;render();if(id){const el=$(id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(e){}}}}
+$("bNewId").onclick=()=>{const r=cur();if(!r)return;
+  if(editingOwn){r.id=[0,1,2,3].map(()=>Math.floor(Math.random()*256))}else{r.id=[255,255,255,255];r.id=newUniqueId()}
+  render();toast("New ID assigned")};
+
+$("bAdd").onclick=()=>{if(data.list.length>=24)return;data.list.push(blankRec());sel=data.list.length-1;page=Math.floor(sel/PER_PAGE);editingOwn=false;render()};
+$("bDup").onclick=()=>{const r=data.list[sel];if(!r||data.list.length>=24)return;const c={...r,id:newUniqueId()};data.list.splice(sel+1,0,c);sel++;page=Math.floor(sel/PER_PAGE);render()};
+$("bDel").onclick=()=>{if(!data.list[sel])return;if(!confirm(`Delete ${data.list[sel].name}?`))return;data.list.splice(sel,1);sel=Math.max(0,Math.min(sel,data.list.length-1));page=Math.floor(sel/PER_PAGE);render()};
+$("bUp").onclick=()=>{if(sel<1)return;[data.list[sel-1],data.list[sel]]=[data.list[sel],data.list[sel-1]];sel--;page=Math.floor(sel/PER_PAGE);render()};
+$("bDown").onclick=()=>{if(sel>=data.list.length-1)return;[data.list[sel+1],data.list[sel]]=[data.list[sel],data.list[sel+1]];sel++;page=Math.floor(sel/PER_PAGE);render()};
+$("bFill").onclick=()=>{let n=0;while(data.list.length<24){data.list.push(blankRec());n++}sel=data.list.length-1;page=2;editingOwn=false;render();toast(`Added ${n} immigrants with different IDs`)};
+$("bOwn").onclick=()=>{if(!data.own){toast("This save has no own immigrant yet");return}editingOwn=true;render()};
+
+// ---------- plantillas ----------
+const PRESETS=[{"name": "Ebanisto", "type": 49, "gender": 0, "age": 1, "hobby": 55, "msg": "Hello, friends of Dragon      Quest IV!", "origin": "Somnia", "sender": "Hero"}, {"name": "Fleurett", "type": 48, "gender": 1, "age": 0, "hobby": 44, "msg": "Good afternoon!", "origin": "Avalonia", "sender": "Hero"}, {"name": "Orifiela", "type": 43, "gender": 1, "age": 7, "hobby": 38, "msg": "Take me to     Zenithia!", "origin": "Zenithia", "sender": "Hero"}, {"name": "María", "type": 45, "gender": 1, "age": 7, "hobby": 19, "msg": "Don't steal,   human!", "origin": "Zenithia", "sender": "Alena"}, {"name": "Antoniet", "type": 45, "gender": 1, "age": 7, "hobby": 17, "msg": "Don't steal ourbirdsong       nectar!", "origin": "Zenithia", "sender": "Alena"}, {"name": "Sofia", "type": 34, "gender": 1, "age": 1, "hobby": 13, "msg": "I'm looking forwands!", "origin": "Rosaville", "sender": "Rosa"}, {"name": "Susi", "type": 21, "gender": 1, "age": 1, "hobby": 9, "msg": "Hello, people  with money!", "origin": "Laissez Fayre", "sender": "Maya"}, {"name": "Blondell", "type": 15, "gender": 1, "age": 1, "hobby": 62, "msg": "I ran off with the priest to  Burland.", "origin": "Burland", "sender": "Ragnar"}, {"name": "Zacarías", "type": 11, "gender": 0, "age": 2, "hobby": 59, "msg": "I seek the     legendary hero!", "origin": "Terrestria", "sender": "Psaro"}, {"name": "Healie", "type": 24, "gender": 2, "age": 0, "hobby": 40, "msg": "I want to help Ragnar!", "origin": "Burland", "sender": "Ragnar"}, {"name": "Hori", "type": 12, "gender": 2, "age": 0, "hobby": 7, "msg": "Hello, friends!", "origin": "Awaji", "sender": "Enix"}, {"name": "Sir Rose", "type": 36, "gender": 2, "age": 7, "hobby": 29, "msg": "I will protect Rose!", "origin": "Rosaville", "sender": "Psaro"}, {"name": "Isis", "type": 23, "gender": 1, "age": 1, "hobby": 3, "msg": "Long live the  queen!", "origin": "Isis", "sender": "Hero"}, {"name": "Attila", "type": 20, "gender": 0, "age": 1, "hobby": 51, "msg": "I will defeat  Alena!", "origin": "Endor", "sender": "Alena"}, {"name": "Klemens", "type": 4, "gender": 0, "age": 6, "hobby": 16, "msg": "Helga, I'll getthe Angel's    Tears!", "origin": "Dialac", "sender": "Kiefer"}, {"name": "Felix", "type": 6, "gender": 0, "age": 0, "hobby": 60, "msg": "I'll paint the bunker         entrance!", "origin": "Dialac", "sender": "Kiefer"}, {"name": "Lena", "type": 7, "gender": 1, "age": 0, "hobby": 48, "msg": "Why is Felix   scribbling on  the wall?", "origin": "Dialac", "sender": "Maribel"}, {"name": "Helga", "type": 1, "gender": 1, "age": 1, "hobby": 4, "msg": "I'll marry     Klemens!", "origin": "Dialac", "sender": "Maribel"}, {"name": "Ralf", "type": 16, "gender": 0, "age": 2, "hobby": 29, "msg": "Where could    Felix be?", "origin": "Dialac", "sender": "Kiefer"}, {"name": "Lakanaba", "type": 8, "gender": 0, "age": 3, "hobby": 1, "msg": "I'll be bigger than Torneko!", "origin": "Lakanaba", "sender": "Torneko"}, {"name": "Ben Bin", "type": 19, "gender": 0, "age": 2, "hobby": 7, "msg": "If I get out,  I'll go        straight!", "origin": "Lakanaba", "sender": "Torneko"}, {"name": "Bea", "type": 27, "gender": 1, "age": 2, "hobby": 14, "msg": "Yes, I married a human!", "origin": "Den of the Dwarves", "sender": "Maribel"}, {"name": "Bucanión", "type": 40, "gender": 0, "age": 5, "hobby": 8, "msg": "I'll rule this town with my   beloved Bea!", "origin": "Buccanham", "sender": "Maribel"}, {"name": "Pedrusco", "type": 25, "gender": 0, "age": 6, "hobby": 31, "msg": "I don't trust  humans!", "origin": "Den of the Dwarves", "sender": "Kiefer"}, {"name": "Zarpazo", "type": 46, "gender": 0, "age": 0, "hobby": 7, "msg": "I'm wild! But  give me milk   and I'll stay.", "origin": "Wild Woods", "sender": "Hero"}];
+PRESETS.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=p.name+" · "+(TYPES[p.type]||p.type);$("preset").appendChild(o)});
+function fromPreset(p,keep){const own=data.own||{sender:"",origin:""};
+  return {id:keep?keep.id:newUniqueId(),sender:p.sender||(keep?keep.sender:own.sender),origin:p.origin||(keep?keep.origin:own.origin),name:p.name,type:p.type,gender:p.gender,age:p.age,hobby:p.hobby,msg:p.msg}}
+$("bPreset").onclick=()=>{const p=PRESETS[+$("preset").value];const r=cur();
+  if(!r){data.list.push(fromPreset(p));sel=0;editingOwn=false}
+  else{const n=fromPreset(p,r);if(editingOwn)data.own=n;else data.list[sel]=n}
+  render();toast("Template applied: "+p.name)};
+$("bAllPresets").onclick=()=>{
+  if(data.list.length&&!confirm(`The ${data.list.length} current immigrants will be replaced by the 24 templates. Continue?`))return;
+  data.list=[];for(const p of PRESETS.slice(0,24))data.list.push(fromPreset(p));
+  sel=0;page=0;editingOwn=false;render();toast("Done! 24 templates with different IDs. Click Save.")};
+$("bFillPresets").onclick=()=>{
+  const have=new Set(data.list.map(r=>r.name));let n=0;
+  for(const p of PRESETS){if(data.list.length>=24)break;if(have.has(p.name))continue;data.list.push(fromPreset(p));n++}
+  sel=Math.max(0,data.list.length-1);page=Math.floor(sel/PER_PAGE);editingOwn=false;render();
+  toast(n?`Added ${n} characters with different IDs`:"All present or the list is full")};
+
+// ---------- códigos ----------
+function recToBytes(r){  // reutiliza el escritor del núcleo sobre un buffer temporal
+  const d=DQ4.save(new Uint8Array(DQ4.BLOCK_SIZE),0,{list:[r],own:null});return d.slice(DQ4.LIST_OFF,DQ4.LIST_OFF+DQ4.REC)}
+$("bCopy").onclick=async()=>{const r=cur();if(!r)return;
+  try{const b=recToBytes(r);let s="";b.forEach(v=>s+=String.fromCharCode(v));const code="DQ4I1:"+btoa(s);$("code").value=code;
+    try{await navigator.clipboard.writeText(code);toast("Code copied")}catch(e){$("code").select();toast("Code ready: copy it from the box")}}
+  catch(e){toast(e.message)}};
+$("bImport").onclick=()=>{
+  const t=$("code").value.trim();if(!t.startsWith("DQ4I1:")){toast("Invalid code (must start with DQ4I1:)");return}
+  if(data.list.length>=24){toast("You already have 24. Delete one first.");return}
+  try{const s=atob(t.slice(6));if(s.length!==DQ4.REC)throw 0;const blk=new Uint8Array(DQ4.BLOCK_SIZE).fill(0xff);
+    for(let i=0;i<s.length;i++)blk[DQ4.LIST_OFF+i]=s.charCodeAt(i);
+    const r=DQ4.load(blk,0).list[0];if(!r)throw 0;
+    if(dupIds()[idKey(r.id)]){r.id=newUniqueId();toast("Added (ID changed because it already existed)")}else toast("Immigrant added");
+    data.list.push(r);sel=data.list.length-1;page=Math.floor(sel/PER_PAGE);editingOwn=false;render()}
+  catch(e){toast("Damaged or incomplete code")}
+};
+
+// ---------- guardar ----------
+$("bSave").onclick=()=>{
+  try{
+    const all=[...data.list.map((r,i)=>[r,"Immigrant "+(i+1)]),...(data.own?[[data.own,"My immigrant"]]:[])];
+    for(const [r,who] of all){
+      if(r.type>50||r.gender>2||r.age>7||r.hobby>63){alert(`${who} (${r.name}) has an out-of-range value (type 0-50, gender 0-2, age 0-7, hobby 0-63). Higher values freeze the game. Fix it before saving.`);return}
+    }
+    const d=dupIds();if(Object.values(d).some(c=>c>1)&&!confirm("There are duplicate IDs: the game may replace one. Save anyway?"))return;
+    const out=DQ4.save(fileBuf,base,data);
+    const blob=new Blob([out],{type:"application/octet-stream"});const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);a.download=fileName;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    fileBuf=out;$("saveInfo").textContent=`Saved: ${data.list.length} immigrants · checksum ${DQ4.checksum(out,base).toString(16).toUpperCase()}`;
+    toast("Save written. Replace your file with the downloaded one.");
+  }catch(e){alert("Could not save: "+e.message)}
+};
+})();
+</script>
+</body>
+</html>
